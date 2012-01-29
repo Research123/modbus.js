@@ -1,6 +1,7 @@
 ## Summary ##
 
-	Node.js wrapper for libmodbus using libuv. libmodbus by Stéphane Raimbault is cross platform data access library for popular industrial protocol "Modbus".
+	Node.js wrapper for libmodbus using libuv. 
+	libmodbus by Stéphane Raimbault is cross platform data access library for popular industrial protocol "Modbus".
 
 ## Install ##
 
