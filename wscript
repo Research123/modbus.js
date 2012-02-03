@@ -18,4 +18,5 @@ def build(bld):
   modbusnode.source = """
     src/node_modbus.cc
     src/modbus_object.cc
+    src/async_helper.cc
   """

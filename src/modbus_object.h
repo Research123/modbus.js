@@ -11,11 +11,10 @@
 using namespace node;
 using namespace v8;
 
+#ifndef MODBUS_OBJECT_H
+#define MODBUS_OBJECT_H
 namespace modbus {
-    
-    using namespace v8;
-    using namespace node;
-    
+        
     class ModbusObject : ObjectWrap {
     private:
         modbus_t *ctx;
@@ -26,10 +25,24 @@ namespace modbus {
         static void Init(Handle<Object> target);
         static Handle<Value> New(const Arguments& args);
         static Handle<Value> Connect(const Arguments& args);
+        
         static Handle<Value> WriteBit(const Arguments& args);
         static Handle<Value> ReadBits(const Arguments& args);
+        static Handle<Value> WriteBits(const Arguments& args);
+        
+        static Handle<Value> ReadInputBits(const Arguments& args);
+        
+        static Handle<Value> WriteRegister(const Arguments& args);
+        static Handle<Value> ReadRegisters(const Arguments& args);
+        static Handle<Value> WriteRegisters(const Arguments& args);
 
+        static Handle<Value> ReadInputRegisters(const Arguments& args);        
+
+        static Handle<Value> SetFloat(const Arguments& args);                
+        static Handle<Value> GetFloat(const Arguments& args);
+        
         Handle<Value> WrappedObject(const Arguments& args);    
         modbus_t* GetContext();
     };
 };
+#endif

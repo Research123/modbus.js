@@ -6,6 +6,7 @@
 #include <modbus.h>
 
 #include "modbus_object.h"
+#include "async_helper.h"
 #include "unit-test.h"
 
 using namespace modbus;
@@ -14,23 +15,6 @@ enum {
     TCP,
     TCP_PI,
     RTU
-};
-
-struct async_data {
-    Persistent<Function> callback;
-    ModbusObject* mObj;
-    int addr;
-    
-    int result_code;
-    uint8_t* result;
-    
-    virtual ~async_data() {
-        callback.Dispose();
-    }
-};
-
-struct bit_data : async_data {
-    int nb;
 };
 
 ModbusObject::ModbusObject(modbus_t *context) {
@@ -49,17 +33,30 @@ void ModbusObject::Init(Handle<Object> target) {
     Local<FunctionTemplate> t = FunctionTemplate::New(New);
     t->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(t, "connect", Connect);
+    
     NODE_SET_PROTOTYPE_METHOD(t, "write_bit", WriteBit);    
     NODE_SET_PROTOTYPE_METHOD(t, "read_bits", ReadBits);    
-    target->Set(String::NewSymbol("ModbusObject"), t->GetFunction());
+    NODE_SET_PROTOTYPE_METHOD(t, "write_bits", WriteBits);        
     
+    NODE_SET_PROTOTYPE_METHOD(t, "read_input_bits", ReadInputBits);        
+    
+    NODE_SET_PROTOTYPE_METHOD(t, "write_register", WriteRegister);        
+    NODE_SET_PROTOTYPE_METHOD(t, "read_registers", ReadRegisters);        
+    NODE_SET_PROTOTYPE_METHOD(t, "write_registers", WriteRegisters);            
+    
+    NODE_SET_PROTOTYPE_METHOD(t, "read_input_registers", ReadInputRegisters);            
+    
+    NODE_SET_PROTOTYPE_METHOD(t, "set_float", SetFloat);                
+    NODE_SET_PROTOTYPE_METHOD(t, "get_float", GetFloat);                    
+    
+    target->Set(String::NewSymbol("ModbusObject"), t->GetFunction());    
 }
 
 Handle<Value> ModbusObject::New(const Arguments& args) {
     HandleScope scope;
     bool return_buffers = false;
 
-    v8::String::Utf8Value backend_type(args[0]);
+    String::Utf8Value backend_type(args[0]);
     
     int use_backend = TCP;    
     modbus_t *ctx;
@@ -114,6 +111,8 @@ Handle<Value> ModbusObject::Connect(const Arguments& args) {
     return Boolean::New(true);
 }
 
+/** COIL BITS **/
+
 Handle<Value> ModbusObject::WriteBit(const Arguments& args) {
     HandleScope scope;
     
@@ -125,46 +124,46 @@ Handle<Value> ModbusObject::WriteBit(const Arguments& args) {
     return Int32::New(modbus_write_bit(mObj->GetContext(), coil_addr, status));
 }
 
-void ReadBitsAsync(uv_work_t* req) {
-
-    bit_data* data = static_cast<bit_data*>(req->data);
+Handle<Value> ModbusObject::ReadBits(const Arguments& args) {        
+    ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
     
-    uint8_t *dest = (uint8_t *) malloc(data->nb * sizeof(uint8_t));
+    const int addr = args[0]->Int32Value();
+    const int nb = args[1]->Int32Value();    
+    Local<Function> callback = Local<Function>::Cast(args[2]);
     
-    data->result_code = modbus_read_bits(data->mObj->GetContext(), data->addr, data->nb, dest);
-    data->result = dest;    
+    bit_data* data = new bit_data();
+    data->callback = Persistent<Function>::New(callback);
+    data->addr = addr;
+    data->nb = nb;
+    data->mObj = mObj;    
+    
+    QueueWork(data, ReadBitsAsync, ReadBitsAsyncAfter);
+    
+    return Undefined();
 }
 
-void ReadBitsAsyncAfter(uv_work_t* req) {
+Handle<Value> ModbusObject::WriteBits(const Arguments& args) {
+    HandleScope scope;
     
-    bit_data* data = static_cast<bit_data*>(req->data);
+    ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
     
-    Local<Array> result = Array::New(0);
+    const int coil_addr = args[0]->Int32Value();
+    const int nb = args[1]->Int32Value();   
+    Local<Array> values = Local<Array>::Cast(args[2]);
     
-    if (data->result_code == 1) {
-        result = Array::New(data->nb);
+    uint8_t tab_value[nb];   
     
-        char coil [1];
-        for (int i = 0; i < data->nb; i++) {
-            sprintf(coil, "%i", data->result[i]);
-            result->Set(Number::New(i), String::New(coil));        
-        }        
-    }
+    for (int i = 0; i < nb; i++) {
+        String::Utf8Value val (values->Get(i));
+        tab_value[i] = atoi(*val);
+    } 
     
-    free(data->result);
-    
-    Handle<Value> argv[2];
-    
-    argv[0] = Int32::New(data->result_code);
-    argv[1] = result;
-    
-    data->callback->Call(Context::GetCurrent()->Global(), 2, argv);
-    
-    delete data;
-
+    return Int32::New(modbus_write_bits(mObj->GetContext(), coil_addr, nb, tab_value));
 }
 
-Handle<Value> ModbusObject::ReadBits(const Arguments& args) {
+/** DISCRETE INPUTS **/
+
+Handle<Value> ModbusObject::ReadInputBits(const Arguments& args) {
     HandleScope scope;
     
     ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
@@ -179,9 +178,105 @@ Handle<Value> ModbusObject::ReadBits(const Arguments& args) {
     data->nb = nb;
     data->mObj = mObj;
     
-    uv_work_t* req = new uv_work_t;
-    req->data = data;
-    uv_queue_work(uv_default_loop(), req, ReadBitsAsync, ReadBitsAsyncAfter);
+    QueueWork(data, ReadInputBitsAsync, ReadBitsAsyncAfter);
     
     return Undefined();
+}
+
+/** HOLDING REGISTERS **/
+
+Handle<Value> ModbusObject::WriteRegister(const Arguments& args) {
+    HandleScope scope;
+    
+    ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
+    
+    const int addr = args[0]->Int32Value();
+    const int value = args[1]->Int32Value();
+    
+    return Int32::New(modbus_write_register(mObj->GetContext(), addr, value));
+}
+
+Handle<Value> ModbusObject::ReadRegisters(const Arguments& args) {
+    ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
+    
+    const int addr = args[0]->Int32Value();
+    const int nb = args[1]->Int32Value();    
+    Local<Function> callback = Local<Function>::Cast(args[2]);
+    
+    register_data* data = new register_data();
+    data->callback = Persistent<Function>::New(callback);
+    data->addr = addr;
+    data->nb = nb;
+    data->mObj = mObj;
+    
+    QueueWork(data, ReadRegistersAsync, ReadRegistersAsyncAfter);
+    
+    return Undefined();
+}
+
+Handle<Value> ModbusObject::WriteRegisters(const Arguments& args) {
+    ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
+    
+    const int coil_addr = args[0]->Int32Value();
+    const int nb = args[1]->Int32Value();   
+    Local<Array> values = Local<Array>::Cast(args[2]);
+    
+    uint16_t tab_value[nb];   
+
+    for (int i = 0; i < nb; i++) {
+        String::Utf8Value val (values->Get(i));
+        tab_value[i] = atoi(*val);
+    } 
+    
+    return Int32::New(modbus_write_registers(mObj->GetContext(), coil_addr, nb, tab_value));
+}
+
+/** INPUT REGISTERS **/
+
+Handle<Value> ModbusObject::ReadInputRegisters(const Arguments& args) {
+    ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
+    
+    const int addr = args[0]->Int32Value();
+    const int nb = args[1]->Int32Value();    
+    Local<Function> callback = Local<Function>::Cast(args[2]);
+    
+    register_data* data = new register_data();
+    data->callback = Persistent<Function>::New(callback);
+    data->addr = addr;
+    data->nb = nb;
+    data->mObj = mObj;
+    
+    QueueWork(data, ReadInputRegistersAsync, ReadRegistersAsyncAfter);
+    
+    return Undefined();
+}
+
+/** FLOAT **/
+
+Handle<Value> ModbusObject::SetFloat(const Arguments& args) {
+    HandleScope scope;
+    
+    const float value = args[0]->NumberValue();
+    
+    uint16_t storage[2];    
+    modbus_set_float(value, storage);
+    
+    return Int32::New(*(uint32_t*)storage);
+}
+
+Handle<Value> ModbusObject::GetFloat(const Arguments& args) {
+    HandleScope scope;
+    
+    Local<Array> values = Local<Array>::Cast(args[0]);
+
+    uint16_t storage[2];    
+    
+    for (int i = 0; i < 2; i++) {
+        String::Utf8Value val (values->Get(i));
+        storage[i] = atoi(*val);
+    } 
+    
+    float result = modbus_get_float(storage);
+    
+    return Number::New(result);
 }
