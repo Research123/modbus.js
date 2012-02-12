@@ -98,8 +98,6 @@ Handle<Value> ModbusObject::New(const Arguments& args) {
 }
 
 Handle<Value> ModbusObject::Connect(const Arguments& args) {
-    HandleScope scope;
-    
     ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
     
     if (modbus_connect(mObj->GetContext()) == -1) {
@@ -114,8 +112,6 @@ Handle<Value> ModbusObject::Connect(const Arguments& args) {
 /** COIL BITS **/
 
 Handle<Value> ModbusObject::WriteBit(const Arguments& args) {
-    HandleScope scope;
-    
     ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
     
     const int coil_addr = args[0]->Int32Value();

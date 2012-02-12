@@ -28,7 +28,7 @@ void ReadBitsAsyncAfter(uv_work_t* req) {
         char coil[1];
         for (int i = 0; i < data->nb; i++) {            
             sprintf(coil, "%0X", data->result[i]);            
-            result->Set(Number::New(i), String::New(coil));        
+            result->Set(Number::New(i), Number::New(atoi(coil)));        
         }        
     }
     
@@ -76,7 +76,7 @@ void ReadRegistersAsyncAfter(uv_work_t* req) {
         char coil[1];
         for (int i = 0; i < data->nb; i++) {
             sprintf(coil, "%i", data->result[i]);            
-            result->Set(Number::New(i), String::New(coil));        
+            result->Set(Number::New(i), Number::New(atoi(coil)));        
         }        
     }
     
