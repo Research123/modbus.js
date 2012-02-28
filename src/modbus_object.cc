@@ -11,17 +11,14 @@
 
 using namespace modbus;
 
-enum {
-    TCP,
-    TCP_PI,
-    RTU
-};
-
 ModbusObject::ModbusObject(modbus_t *context) {
     ctx = context; 
 }
 
-ModbusObject::~ModbusObject() {}
+ModbusObject::~ModbusObject() {
+    modbus_close(ctx);
+    modbus_free(ctx);
+}
 
 modbus_t* ModbusObject::GetContext() {
     return ctx;
@@ -33,6 +30,7 @@ void ModbusObject::Init(Handle<Object> target) {
     Local<FunctionTemplate> t = FunctionTemplate::New(New);
     t->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(t, "connect", Connect);
+    NODE_SET_PROTOTYPE_METHOD(t, "disconnect", Disconnect);
     
     NODE_SET_PROTOTYPE_METHOD(t, "write_bit", WriteBit);    
     NODE_SET_PROTOTYPE_METHOD(t, "read_bits", ReadBits);    
@@ -54,13 +52,13 @@ void ModbusObject::Init(Handle<Object> target) {
 
 Handle<Value> ModbusObject::New(const Arguments& args) {
     HandleScope scope;
-    bool return_buffers = false;
 
     String::Utf8Value backend_type(args[0]);
+    String::Utf8Value object_type(args[1]);
     
     int use_backend = TCP;    
     modbus_t *ctx;
-    
+
     if (strcmp(*backend_type, "tcp") == 0) {
         use_backend = TCP;
     } else if (strcmp(*backend_type, "tcppi") == 0) {
@@ -70,28 +68,60 @@ Handle<Value> ModbusObject::New(const Arguments& args) {
     } else {
         return ThrowException(Exception::Error(String::New("Unknown backend type.")));
     }        
-    
+        
     if (use_backend == TCP) {
         ctx = modbus_new_tcp("127.0.0.1", 1502);
     } else if (use_backend == TCP_PI) {
         ctx = modbus_new_tcp_pi("::1", "1502");
     } else {
         ctx = modbus_new_rtu("/dev/ttyUSB1", 115200, 'N', 8, 1);
-    }
-    
-    if (ctx == NULL) {
-        return ThrowException(Exception::Error(String::New("Unable to allocate libmodbus context.")));
-    }
-    
-    modbus_set_debug(ctx, false);
-    modbus_set_error_recovery(ctx,
-                              MODBUS_ERROR_RECOVERY_PROTOCOL);
-    
-    if (use_backend == RTU) {
         modbus_set_slave(ctx, SERVER_ID);
     }
-    
+
+    if (ctx == NULL) {
+        return ThrowException(Exception::Error(String::New("Unable to allocate libmodbus context.")));
+    } 
+
+    modbus_set_debug(ctx, true);
+    modbus_set_error_recovery(ctx,
+                              MODBUS_ERROR_RECOVERY_PROTOCOL);        
+
     ModbusObject* modbus_instance = new ModbusObject(ctx); 
+
+    if (strcmp(*object_type, "server") == 0)
+    {            
+        modbus_mapping_t *mb_mapping;        
+        int socket, rc;        
+
+        mb_mapping = modbus_mapping_new(
+            UT_BITS_ADDRESS + UT_BITS_NB,
+            UT_INPUT_BITS_ADDRESS + UT_INPUT_BITS_NB,
+            UT_REGISTERS_ADDRESS + UT_REGISTERS_NB,
+            UT_INPUT_REGISTERS_ADDRESS + UT_INPUT_REGISTERS_NB);
+
+        if (mb_mapping == NULL)             
+            return ThrowException(Exception::Error(String::New("Failed to allocate the mapping.")));        
+
+        /** INPUT STATUS **/
+        modbus_set_bits_from_bytes(mb_mapping->tab_input_bits,
+                                   UT_INPUT_BITS_ADDRESS, UT_INPUT_BITS_NB,
+                                   UT_INPUT_BITS_TAB);
+
+        /** INPUT REGISTERS **/
+        for (int i = 0; i < UT_INPUT_REGISTERS_NB; i++) {
+            mb_mapping->tab_input_registers[UT_INPUT_REGISTERS_ADDRESS+i] =
+                UT_INPUT_REGISTERS_TAB[i];;
+        }    
+
+        server_data* data = new server_data();
+        data->use_backend = use_backend;
+        data->mObj = modbus_instance;
+        data->mb_mapping = mb_mapping;
+
+        uv_work_t* req = new uv_work_t;
+        req->data = data;
+        uv_queue_work(uv_default_loop(), req, AccepQueryAsync, NULL);
+    }               
 
     modbus_instance->Wrap(args.This());
     return scope.Close(args.This());
@@ -105,6 +135,15 @@ Handle<Value> ModbusObject::Connect(const Arguments& args) {
         modbus_free(mObj->GetContext());
         return Boolean::New(false);
     }
+        
+    return Boolean::New(true);
+}
+
+Handle<Value> ModbusObject::Disconnect(const Arguments& args) {
+    ModbusObject *mObj = ObjectWrap::Unwrap<ModbusObject>(args.This());
+    
+    modbus_close(mObj->GetContext());
+    modbus_free(mObj->GetContext());
         
     return Boolean::New(true);
 }

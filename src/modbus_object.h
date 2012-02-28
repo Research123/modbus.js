@@ -25,6 +25,7 @@ namespace modbus {
         static void Init(Handle<Object> target);
         static Handle<Value> New(const Arguments& args);
         static Handle<Value> Connect(const Arguments& args);
+        static Handle<Value> Disconnect(const Arguments& args);
         
         static Handle<Value> WriteBit(const Arguments& args);
         static Handle<Value> ReadBits(const Arguments& args);

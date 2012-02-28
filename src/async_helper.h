@@ -12,6 +12,18 @@ using namespace modbus;
 using namespace node;
 using namespace v8;
 
+enum {
+    TCP,
+    TCP_PI,
+    RTU
+};
+
+struct server_data {
+    modbus::ModbusObject* mObj;
+    int use_backend;        
+    modbus_mapping_t *mb_mapping;    
+};
+
 struct async_data {
     Persistent<Function> callback;
     modbus::ModbusObject* mObj;
@@ -44,3 +56,6 @@ void ReadRegistersAsync(uv_work_t* req);
 void ReadRegistersAsyncAfter(uv_work_t* req);
 
 void ReadInputRegistersAsync(uv_work_t* req);
+
+void AccepQueryAsync(uv_work_t* req);
+void ProcessQueryAsync(uv_work_t* req);
