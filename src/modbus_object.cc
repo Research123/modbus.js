@@ -155,8 +155,18 @@ Handle<Value> ModbusObject::WriteBit(const Arguments& args) {
     
     const int coil_addr = args[0]->Int32Value();
     const int status = args[1]->Int32Value();
-        
-    return Int32::New(modbus_write_bit(mObj->GetContext(), coil_addr, status));
+    Local<Function> callback = Local<Function>::Cast(args[2]);
+    
+    bit_data* data = new bit_data();
+    data->callback = Persistent<Function>::New(callback);
+    data->addr = coil_addr;
+    data->result_code = status;
+    data->mObj = mObj;    
+    
+    QueueWork(data, WriteBitAsync, WriteBitsAsyncAfter);
+
+    //return Int32::New(modbus_write_bit(mObj->GetContext(), coil_addr, status));
+    return Undefined();
 }
 
 Handle<Value> ModbusObject::ReadBits(const Arguments& args) {        
@@ -185,7 +195,8 @@ Handle<Value> ModbusObject::WriteBits(const Arguments& args) {
     const int coil_addr = args[0]->Int32Value();
     const int nb = args[1]->Int32Value();   
     Local<Array> values = Local<Array>::Cast(args[2]);
-    
+    Local<Function> callback = Local<Function>::Cast(args[3]);    
+
     uint8_t tab_value[nb];   
     
     for (int i = 0; i < nb; i++) {
@@ -193,7 +204,16 @@ Handle<Value> ModbusObject::WriteBits(const Arguments& args) {
         tab_value[i] = atoi(*val);
     } 
     
-    return Int32::New(modbus_write_bits(mObj->GetContext(), coil_addr, nb, tab_value));
+    bit_data* data = new bit_data();
+    data->callback = Persistent<Function>::New(callback);
+    data->addr = coil_addr;
+    data->nb = nb;
+    data->result = tab_value;
+    data->mObj = mObj;
+
+    //return Int32::New(modbus_write_bits(mObj->GetContext(), coil_addr, nb, tab_value));
+    QueueWork(data, WriteBitsAsync, WriteBitsAsyncAfter);
+    return Undefined();
 }
 
 /** DISCRETE INPUTS **/
@@ -227,8 +247,18 @@ Handle<Value> ModbusObject::WriteRegister(const Arguments& args) {
     
     const int addr = args[0]->Int32Value();
     const int value = args[1]->Int32Value();
+    Local<Function> callback = Local<Function>::Cast(args[2]);
     
-    return Int32::New(modbus_write_register(mObj->GetContext(), addr, value));
+    register_data* data = new register_data();
+    data->callback = Persistent<Function>::New(callback);
+    data->addr = addr;
+    data->result_code = value;
+    data->mObj = mObj;    
+    
+    QueueWork(data, WriteRegisterAsync, WriteRegistersAsyncAfter);
+    
+    return Undefined();
+    //return Int32::New(modbus_write_register(mObj->GetContext(), addr, value));
 }
 
 Handle<Value> ModbusObject::ReadRegisters(const Arguments& args) {
@@ -255,15 +285,26 @@ Handle<Value> ModbusObject::WriteRegisters(const Arguments& args) {
     const int coil_addr = args[0]->Int32Value();
     const int nb = args[1]->Int32Value();   
     Local<Array> values = Local<Array>::Cast(args[2]);
-    
+    Local<Function> callback = Local<Function>::Cast(args[3]);
+
     uint16_t tab_value[nb];   
 
     for (int i = 0; i < nb; i++) {
         String::Utf8Value val (values->Get(i));
         tab_value[i] = atoi(*val);
-    } 
+    }     
     
-    return Int32::New(modbus_write_registers(mObj->GetContext(), coil_addr, nb, tab_value));
+    register_data* data = new register_data();
+    data->callback = Persistent<Function>::New(callback);
+    data->addr = coil_addr;
+    data->nb = nb;
+    data->result = tab_value;
+    data->mObj = mObj;    
+    
+    QueueWork(data, WriteRegistersAsync, WriteRegistersAsyncAfter);
+    
+    return Undefined();
+    //return Int32::New(modbus_write_registers(mObj->GetContext(), coil_addr, nb, tab_value));
 }
 
 /** INPUT REGISTERS **/

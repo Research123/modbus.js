@@ -6,6 +6,32 @@ void QueueWork(async_data* data, uv_work_cb work_cb, uv_after_work_cb after_work
     uv_queue_work(uv_default_loop(), req, work_cb, after_work_cb);
 }
 
+void WriteBitAsync(uv_work_t* req) {
+        
+    bit_data* data = static_cast<bit_data*>(req->data);    
+        
+    data->result_code = 
+        modbus_write_bit(data->mObj->GetContext(), data->addr, data->result_code);
+}
+
+void WriteBitsAsync(uv_work_t* req) {
+        
+    bit_data* data = static_cast<bit_data*>(req->data);    
+    
+    data->result_code = 
+        modbus_write_bits(data->mObj->GetContext(), data->addr, data->nb, data->result);
+}
+
+void WriteBitsAsyncAfter(uv_work_t* req) {
+        
+    bit_data* data = static_cast<bit_data*>(req->data);    
+    
+    Handle<Value> argv[1];    
+    argv[0] = Int32::New(data->result_code);
+
+    data->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+}
+
 void ReadBitsAsync(uv_work_t* req) {
         
     bit_data* data = static_cast<bit_data*>(req->data);    
@@ -59,6 +85,32 @@ void ReadInputBitsAsync(uv_work_t* req) {
     data->result = dest;  
     //uv_mutex_unlock(&mutex);
     //uv_mutex_destroy(&mutex);      
+}
+
+void WriteRegisterAsync(uv_work_t* req) {
+        
+    register_data* data = static_cast<register_data*>(req->data);    
+     
+    data->result_code = 
+        modbus_write_register(data->mObj->GetContext(), data->addr, data->result_code);
+}
+
+void WriteRegistersAsync(uv_work_t* req) {
+        
+    register_data* data = static_cast<register_data*>(req->data);    
+    
+    data->result_code = 
+        modbus_write_registers(data->mObj->GetContext(), data->addr, data->nb, data->result);
+}
+
+void WriteRegistersAsyncAfter(uv_work_t* req) {
+        
+    register_data* data = static_cast<register_data*>(req->data);    
+    
+    Handle<Value> argv[1];    
+    argv[0] = Int32::New(data->result_code);
+
+    data->callback->Call(Context::GetCurrent()->Global(), 1, argv);
 }
 
 void ReadRegistersAsync(uv_work_t* req) {

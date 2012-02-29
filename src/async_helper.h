@@ -48,10 +48,16 @@ struct register_data : async_data {
 
 void QueueWork(async_data* data, uv_work_cb work_cb, uv_after_work_cb after_work_cb);
 
+void WriteBitAsync(uv_work_t* req);
+void WriteBitsAsync(uv_work_t* req);
+void WriteBitsAsyncAfter(uv_work_t* req);
 void ReadBitsAsync(uv_work_t* req);
 void ReadInputBitsAsync(uv_work_t* req);
 void ReadBitsAsyncAfter(uv_work_t* req);
 
+void WriteRegisterAsync(uv_work_t* req);
+void WriteRegistersAsync(uv_work_t* req);
+void WriteRegistersAsyncAfter(uv_work_t* req);
 void ReadRegistersAsync(uv_work_t* req);
 void ReadRegistersAsyncAfter(uv_work_t* req);
 

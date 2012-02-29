@@ -11,22 +11,29 @@ module.exports = {
     },
     write_bit: function(assert) {
         assert.expect(3);
-        assert.equal(client.write_bit(0x13, 1), 1, "write_bit failed");
-        client.read_bits(0x13, 1, function(err, res) {
-            assert.equal(err, 1, "Expected 1, got " + err);
-            assert.equal(res, 1, "Expected ON");
-            assert.done();
-        });         
+        client.write_bit(0x13, 1, function(err) {
+            assert.equal(err, 1, "write_bit failed");
+            
+            client.read_bits(0x13, 1, function(err, res) {
+                assert.equal(err, 1, "Expected 1, got " + err);
+                assert.equal(res, 1, "Expected ON");
+                assert.done();
+            });         
+        });                
     },
     write_bits: function(assert) {
         assert.expect(3);
         var values = [1,0,1,1,0,0,1,1,1,1,0,1,0,1,1,0,0,1,0,0,1,1,0,1,0,1,1,1,0,0,0,0,1,1,0,1,1];        
-        assert.equal(client.write_bits(0x13, values.length, values), values.length, "write_bits failed");
-        client.read_bits(0x13, values.length, function(err, res) {
-            assert.equal(err, values.length, "Expected result shoud be equal input array length");
-            assert.ok(arrays_equal(res, values), "Unexpected values " + res);
-            assert.done();
-        });         
+        
+        client.write_bits(0x13, values.length, values, function(err) {
+            assert.equal(err, values.length, "write_bits failed");
+
+            client.read_bits(0x13, values.length, function(err, res) {
+                assert.equal(err, values.length, "Expected result shoud be equal input array length");
+                assert.ok(arrays_equal(res, values), "Unexpected values " + res);
+                assert.done();
+            });         
+        });        
     },
     read_input_bits: function(assert) {
         assert.expect(2);
@@ -39,21 +46,28 @@ module.exports = {
     },
     write_register: function(assert) {
         assert.expect(3);
-        assert.equal(client.write_register(0x6B, 0x1234), 1, "write_register failed");
-        client.read_registers(0x6B, 1, function(err, res) {
-            assert.equal(err, 1, "Expected 1, got " + err);
-            assert.equal(res, 0x1234, "Expected 0x1234");
-            assert.done();
-        });         
+        client.write_register(0x6B, 0x1234, function(err) {
+            assert.equal(err, 1, "write_register failed");
+           
+           client.read_registers(0x6B, 1, function(err, res) {
+                assert.equal(err, 1, "Expected 1, got " + err);
+                assert.equal(res, 0x1234, "Expected 0x1234");
+                assert.done();
+            });              
+        });            
     },
     write_registers: function(assert) {
         assert.expect(3);
-        var values = [0x022B, 0x0001, 0x0064];        
-        assert.equal(client.write_registers(0x6B, values.length, values), values.length, "write_registers failed");
-        client.read_registers(0x6B, values.length, function(err, res) {
-            assert.equal(err, values.length, "Expected result shoud be equal input array length");
-            assert.ok(arrays_equal(res, values), "Unexpected values " + res);
-            assert.done();
+        var values = [0x022B, 0x0001, 0x0064];       
+
+        client.write_registers(0x6B, values.length, values, function(err) {
+            assert.equal(err, values.length, "write_registers failed");
+            
+            client.read_registers(0x6B, values.length, function(err, res) {
+                assert.equal(err, values.length, "Expected result shoud be equal input array length");
+                assert.ok(arrays_equal(res, values), "Unexpected values " + res);
+                assert.done();
+            });         
         });         
     },
     read_input_registers: function(assert) {
